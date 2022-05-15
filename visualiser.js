@@ -1,28 +1,30 @@
 var my_canvas = document.getElementById('canvas'),
     context = my_canvas.getContext("2d");
 
-var c_nodes = 3;
-var c_circ = 10
-var c_radius = c_circ / 2*Math.PI;
-var e_circ = 80
-var e_radius = e_circ / 2*Math.PI;
-var g_radius = c_radius / Math.cos(Math.PI / (c_nodes * 2));
-var teeth = 12345;
-var b_radius = 0;
+var	c_nodes;
+var	c_circ;
+var	c_radius;
+var	e_circ;
+var	e_radius;
+var	g_radius;
+var teeth;
 
-var p_offset_x = 15;
-var p_offset_y = 0;
+var p_offset_x;
+var p_offset_y;
 
-var h_circ = 96;
-var h_radius = h_circ / 2*Math.PI;
-var o_radius = 240;
-var p_radius = 20;
-var eff_radius = 0;
-var eff_x = 0;
-var eff_y = 0;
+var h_circ;
+var h_radius;
 
-var rotate = Math.PI / 180 * 0;
-var orbit = 0;
+var rotate;
+
+var trace;
+var tpen_x;
+var tpen_y;
+var path_complete;
+var path_start_x;
+var path_start_y;
+
+var resolution;
 
 var h = 0;
 var i = 0;
@@ -34,18 +36,50 @@ const e_y = [];
 
 const breakpoints = [];
 
-var x = 250;
-var y = 200;
+var x = window.innerWidth/2;
+var y = window.innerHeight/2;
 
 var tx = 0;
 var ty = 0;
 
 var debug_txt = '';
 
-function init() {
+function setVariables() {
+	c_nodes = Number(document.getElementById('nodes').value);
+	c_circ = Number(document.getElementById('c_size').value);
+	c_radius = c_circ / 2*Math.PI;
+	e_circ = Number(document.getElementById('e_size').value);
+	e_radius = e_circ / 2*Math.PI;
+	g_radius = c_radius / Math.cos(Math.PI / (c_nodes * 2));
+	
+	p_offset_x = Number(document.getElementById('poff_x').value);
+	p_offset_y = Number(document.getElementById('poff_y').value);
+
+	h_circ = Number(document.getElementById('h_size').value);
+	h_radius = h_circ / 2*Math.PI;
+
+	rotate = 0;
+	
+	trace = new Path2D();
+	tpen_x = x;
+	tpen_y = y;
+	path_complete = false;
+	path_start_x = 0;
+	path_start_y = 0;
+	
+	resolution = Number(document.getElementById('speed').value);;
+}
+
+function redraw() {
+	setVariables();
+	path_complete = true;
+	init();
+}
+
+function debug() {
 
 // Set calculation stroke color to gray
-context.strokeStyle = 'black';
+context.strokeStyle = 'gray';
 
 // Draw core geometry circle
 context.beginPath();
@@ -137,7 +171,6 @@ for (let i = 0; i < c_x.length; i++) {
   var b_y = c_y[i] + (Math.sin(c_start) * c_radius);
   var b_a = Math.atan((b_y - y)/(b_x - x));
   if (b_x - x < 0) { b_a = b_a + Math.PI; }
-  if (b_radius == 0) { b_radius = Math.hypot(b_x - x, b_y - y); }
   context.beginPath();
   context.moveTo(x,y);
   context.lineTo(x + Math.cos(b_a) * 200, y + Math.sin(b_a) * 200);
@@ -162,41 +195,25 @@ for (let i = 0; i < c_x.length; i++) {
 	//context.arc(e_x[i],e_y[i],e_radius,e_start,e_stop);
 	context.stroke();
 }
-window.requestAnimationFrame(draw);
+
 }
 
-function trig(s1,s2,a) {
-	return Math.sqrt(Math.pow(s1,2) + Math.pow(s2,2) - 2 * s1 * s2 * Math.cos(a));
+function init() {
+	my_canvas.width = window.innerWidth;
+    my_canvas.height = window.innerHeight;
+	window.requestAnimationFrame(draw);
 }
 
-let trace = new Path2D();
-var tpen_x = x;
-var tpen_y = y;
-
-var path_complete = false;
-var path_start_x = 0;
-var path_start_y = 0;
+function buttonDraw() {
+	setVariables();
+	init();
+}
 
 function draw() {
 i = 0;
 j = 0;
 
-var sx = 0;
-var sy = 0;
-var dx = 0;
-var dy = 0;
-var da = 0;
-
-var resolution = 1;
-
-var k = 0;
-var b_count = 1;
-var bb_count = 0;
-
-var ixd = 0;
-var iyd = 0;
-
-context.clearRect(0,0,800,800);
+context.clearRect(0,0,my_canvas.width,my_canvas.height);
 
 //////////////////////////////////////////////
 // Calculate displacement of corner centers //
@@ -216,82 +233,83 @@ var ec_offset = Math.sqrt(Math.pow(e_radius - c_radius,2) - Math.pow(side_length
 // Trig to find angle of corner arc from edge arc center
 var seg_break = Math.PI / c_nodes - Math.asin(side_length / (e_radius - c_radius));
 
+///////////////////////////////////////
+// Calculate number of teeth on gear //
+///////////////////////////////////////
+
 // Use calculated angle to find number of teeth on gear
 teeth = Math.round(c_nodes * (seg_break / Math.PI * c_circ + ((2 * Math.PI / c_nodes) - 2 * seg_break) / (2 * Math.PI) * e_circ));
 
-debug_txt = teeth;
+//////////////////////////////////////////////////
+// Calculate closest segment break to intercept //
+//////////////////////////////////////////////////
 
-// Calculate closest segment break to rotation displacement
-
-var circ_prog = rotate / (Math.PI * 2) * teeth * (h_circ / teeth);
-var seg_circ = teeth/c_nodes;
-var side_seg = Math.floor(circ_prog / seg_circ);
-var side_prog = circ_prog - (seg_circ * side_seg);
 var rotseg = 0;
 var seg_prog = 0;
 var seg_angle = 0;
-var tooth_ratio = teeth / (c_circ + e_circ);
-var c_seg = c_circ * tooth_ratio * (2 * seg_break / Math.PI);
-var e_seg = seg_circ - c_seg;
-if (side_prog - (c_seg/2) <= 0) {
-	rotseg = 2 * side_seg;
-  seg_prog = side_prog;
-} else if (side_prog - (c_seg/2) - e_seg <= 0)
-{
-	rotseg = 2 * side_seg + 1;
-  seg_prog = side_prog - (c_seg/2);
-} else {
-	rotseg = 2 * side_seg + 2;
-  seg_prog = -(seg_circ - side_prog);
-}
-
-var rotseg_a = (Math.PI * 2) / (c_nodes * 2) * rotseg;
 var intercept_x = 0;
 var intercept_y = 0;
 var rot_x = 0;
 var rot_y = 0;
-var rot_angle = 0;
-var invert_angle = 0;
-var tinvert_angle = 0;
+
+// Intercept progress around circumference
+// Proportion of rotation by tooth count, modified by gear ratio
+var circ_prog = rotate / (Math.PI * 2) * teeth * (h_circ / teeth);
+
+// Number of teeth on each 'side' of gear
+var seg_circ = teeth/c_nodes;
+
+// Calculate which 'side' intercept lies on
+var side_seg = Math.floor(circ_prog / seg_circ);
+
+// Calculate how far along current side the intercept lies
+var side_prog = circ_prog - (seg_circ * side_seg);
+
+// Calculate number of teeth on each corner/edge arc
+var tooth_ratio = teeth / (c_circ + e_circ);
+var c_seg = c_circ * tooth_ratio * (2 * seg_break / Math.PI);
+var e_seg = seg_circ - c_seg;
+debug_txt = teeth;
+
+// Determine whether intercept lies on corner or edge
+if (side_prog - (c_seg/2) <= 0) {
+	rotseg = 2 * side_seg;
+	seg_prog = side_prog;
+} else if (side_prog - (c_seg/2) - e_seg <= 0)
+{
+	rotseg = 2 * side_seg + 1;
+	seg_prog = side_prog - (c_seg/2);
+} else {
+	rotseg = 2 * side_seg + 2;
+	seg_prog = -(seg_circ - side_prog);
+}
+
+// Calculate angle to center of rotation
+var rotseg_a = (Math.PI * 2) / (c_nodes * 2) * rotseg;
+
+let intercept = new Path2D();
+intercept.moveTo(x,y);
 
 if(rotseg % 2 == 0) {
-	eff_radius = c_radius;
-  seg_angle = (2*rotseg) * (Math.PI / (2*c_nodes));
-  seg_angle = seg_angle + ((seg_prog / c_seg) * (2 * seg_break));
-  context.beginPath();
-	context.moveTo(x,y);
+	seg_angle = (2*rotseg) * (Math.PI / (2*c_nodes));
+	seg_angle = seg_angle + ((seg_prog / c_seg) * (2 * seg_break));
 	rot_x = x + Math.cos(rotseg_a) * g_radius;
 	rot_y = y + Math.sin(rotseg_a) * g_radius;
-	context.lineTo(rot_x,rot_y);
+	intercept.lineTo(rot_x,rot_y);
 	intercept_x = rot_x + Math.cos(seg_angle) * c_radius;
 	intercept_y = rot_y + Math.sin(seg_angle) * c_radius;
-	context.lineTo(intercept_x,intercept_y);
-  rot_angle = (Math.PI - rotseg_a) + (2*rotate);
-  invert_angle = Math.asin(Math.sin(rot_angle) / Math.hypot(intercept_x-x,intercept_y-y) * g_radius);
-  tinvert_angle = 2*rotate - Math.PI + invert_angle;
-  //context.lineTo(intercept_x + Math.cos(tinvert_angle) * 80,intercept_y + Math.sin(tinvert_angle) * 80);
-  //debug_txt = 'Corner intercept ' + seg_break / Math.PI * 180 + ' - ' + rotate / (2* Math.PI) * teeth;
+	intercept.lineTo(intercept_x,intercept_y);
 } else {
-	eff_radius = e_radius;
-  seg_angle = (2*(rotseg-1)) * (Math.PI / (2*c_nodes)) + seg_break;
-  seg_angle = seg_angle + ((seg_prog / e_seg) * (2 * Math.PI / c_nodes - 2*seg_break));
-  context.beginPath();
-	context.moveTo(x,y);
+	seg_angle = (2*(rotseg-1)) * (Math.PI / (2*c_nodes)) + seg_break;
+	seg_angle = seg_angle + ((seg_prog / e_seg) * (2 * Math.PI / c_nodes - 2*seg_break));
 	rot_x = x + Math.cos(rotseg_a) * -ec_offset;
 	rot_y = y + Math.sin(rotseg_a) * -ec_offset;
-	context.lineTo(rot_x,rot_y);
+	intercept.lineTo(rot_x,rot_y);
 	intercept_x = rot_x + Math.cos(seg_angle) * e_radius;
 	intercept_y = rot_y + Math.sin(seg_angle) * e_radius;
-	context.lineTo(intercept_x,intercept_y);
-  rot_angle = rotseg_a - 2*rotate;
-  invert_angle = Math.asin(Math.sin(rot_angle) / Math.hypot(intercept_x-x,intercept_y-y) * g_radius);
-  tinvert_angle = 2*rotate - Math.PI - invert_angle;
-  //context.lineTo(intercept_x + Math.cos(tinvert_angle) * 80,intercept_y + Math.sin(tinvert_angle) * 80);
-  //debug_txt = 'Edge intercept ' + seg_break / Math.PI * 180 + ' - ' + rotate / (2* Math.PI) * teeth;
+	intercept.lineTo(intercept_x,intercept_y);
 }
-context.stroke();
-
-var edge_displace = Math.hypot(intercept_x - x, intercept_y - y);
+//context.stroke(intercept);
 
 var x_displace = x + (Math.cos(rotate)*h_radius - intercept_x);
 var y_displace = y + (Math.sin(rotate)*h_radius - intercept_y);
@@ -310,90 +328,119 @@ tpen_y = y_focus - Math.sin(rot_pen + rotate - seg_angle) * disp_pen;
 
 trace.lineTo(tpen_x,tpen_y);
 
+context.beginPath();
+context.arc(tpen_x,tpen_y, 2, 0, 2*Math.PI, false);
+context.fillStyle = 'red';
+context.fill();
+context.closePath();
+
 if (rotate == 0) {
 	path_start_x = tpen_x;
-  path_start_y = tpen_y;
+	path_start_y = tpen_y;
 }
 
-for (let i = 0; i <= 180; i++) {
-	context.beginPath();
-  context.lineWidth = 1;
-  context.strokeStyle = 'blue';
+////////////////////////////////////
+// Create path to draw gear shape //
+////////////////////////////////////
+
+// Initalise path object
+let shape = new Path2D();
+
+// Loop through 360 degrees to outline gear
+for (let i = 0; i <= 360; i++) {
+	// Convert i degrees to j radians
+	j = i * Math.PI / 180;
   
-  // If drawing already begun, initialise line at previous coordinates
-  if(i > 0) { context.moveTo(tx,ty); }
+	// Calculate closest segment break using same method
+	// as used to find intercept
+	var broad_seg = Math.floor(c_nodes / 360 * i);
+	var broad_prog = (c_nodes / 360 * i - broad_seg) * (2 * Math.PI / c_nodes);
+	var seg = broad_seg;
+	if (broad_prog <= seg_break) {
+		seg = broad_seg * 2;
+	} else if (broad_prog >= (2 * Math.PI / c_nodes) - seg_break) {
+		seg = broad_seg * 2 + 2;
+	} else {
+		seg = broad_seg * 2 + 1;
+	}
+	var seg_a = Math.PI * 2 / (c_nodes * 2) * seg;
   
-  // Convert i degrees to j radians
-  j = i * 2 * Math.PI / 180;
-  
-  // Calculate closest segment break
-  var broad_seg = Math.floor(c_nodes / 180 * i);
-  var broad_prog = (c_nodes / 180 * i - broad_seg) * (2 * Math.PI / c_nodes);
-  var seg = broad_seg;
-  if (broad_prog <= seg_break) {
-  	seg = broad_seg * 2;
-  } else if (broad_prog >= (2 * Math.PI / c_nodes) - seg_break) {
-  	seg = broad_seg * 2 + 2;
-  } else {
-  	seg = broad_seg * 2 + 1;
-  }
-  var seg_a = Math.PI * 2 / (c_nodes * 2) * seg;
-  
-  // Calculate rotation center
-  var r_x = x;
-  var r_y = y;
-  if ((seg) % 2 == 0) {
-  	r_x = x + Math.cos(seg_a) * g_radius;
-  	r_y = y + Math.sin(seg_a) * g_radius;
-  	tx = r_x + Math.cos(j) * c_radius;
-  	ty = r_y + Math.sin(j) * c_radius;
-   } else {
-   	r_x = x + Math.cos(seg_a) * (-ec_offset);
-  	r_y = y + Math.sin(seg_a) * (-ec_offset);
-  	tx = r_x + Math.cos(j) * e_radius;
-  	ty = r_y + Math.sin(j) * e_radius;
-   }
+	// Calculate rotation center
+	var r_x = x;
+	var r_y = y;
+	if ((seg) % 2 == 0) {
+		r_x = x + Math.cos(seg_a) * g_radius;
+		r_y = y + Math.sin(seg_a) * g_radius;
+		tx = r_x + Math.cos(j) * c_radius;
+		ty = r_y + Math.sin(j) * c_radius;
+	} else {
+		r_x = x + Math.cos(seg_a) * (-ec_offset);
+		r_y = y + Math.sin(seg_a) * (-ec_offset);
+		tx = r_x + Math.cos(j) * e_radius;
+		ty = r_y + Math.sin(j) * e_radius;
+	}
     
-   // Add displacement around hoop circumference
-   tx = tx + x_displace;
-   ty = ty + y_displace;
+	// Add displacement around hoop circumference using
+	// linear offset calculated above at intercept
+	tx = tx + x_displace;
+	ty = ty + y_displace;
    
-   // Add shape rotation
-   var rot_draw = Math.atan((y_focus - ty)/(x_focus - tx));
-   if (x_focus - tx < 0) { rot_draw = rot_draw + Math.PI; }
-   var disp_draw = Math.hypot(x_focus - tx, y_focus - ty);
-   tx = x_focus - Math.cos(rot_draw + rotate - seg_angle) * disp_draw;
-   ty = y_focus - Math.sin(rot_draw + rotate - seg_angle) * disp_draw;
+	// Add shape rotation using rotation offset
+	// calculated above at intercept
+	var rot_draw = Math.atan((y_focus - ty)/(x_focus - tx));
+	if (x_focus - tx < 0) { rot_draw = rot_draw + Math.PI; }
+	var disp_draw = Math.hypot(x_focus - tx, y_focus - ty);
+	tx = x_focus - Math.cos(rot_draw + rotate - seg_angle) * disp_draw;
+	ty = y_focus - Math.sin(rot_draw + rotate - seg_angle) * disp_draw;
   
-  // Draw line segment
-  context.lineTo(tx,ty);
-  context.stroke();
+	// Add line segment to shape path
+	shape.lineTo(tx,ty);
 }
+context.lineWidth = 1;
+context.strokeStyle = 'blue';
+context.stroke(shape);
+
+///////////////////////////////////////////
+// Draw hoop circumference in light grey //
+///////////////////////////////////////////
 
 context.beginPath();
 context.strokeStyle = 'lightgrey';
 context.arc(x,y,h_radius,0,2*Math.PI);
 context.stroke();
 
+/////////////////////////////////////
+// Draw recorded trace line in red //
+/////////////////////////////////////
+
 context.strokeStyle = 'red';
 context.stroke(trace);
 
-context.beginPath();
-context.moveTo(x,y);
-context.lineTo(x_focus,y_focus);
-//context.stroke();
+/////////////////////////////////////////////////////////
+// Increment rotate variable based on resolution speed //
+/////////////////////////////////////////////////////////
 
 rotate = rotate + Math.PI / 180 * resolution;
-orbit = orbit + Math.PI / 180 / g_radius * h_radius * resolution;
-if (orbit >= 2 * Math.PI) {
-	orbit = orbit - 2 * Math.PI;
-}
 
-context.fillText(debug_txt,10,10);
+////////////////////////////////////////
+// Populate dubug monitor if required //
+////////////////////////////////////////
+
+//context.fillText(debug_txt,10,10);
+
+////////////////////////////////////////////////
+// Check for trace path closure within 0.01px //
+////////////////////////////////////////////////
 
 if (Math.abs(tpen_x - path_start_x) <= 0.01 && Math.abs(tpen_y - path_start_y) <= 0.01 && rotate > Math.PI / c_nodes) { path_complete = true; }
+
+//////////////////////////////////////////////////////
+// Loop drawing function if trace line remains open //
+//////////////////////////////////////////////////////
 
 if (!path_complete) { window.requestAnimationFrame(draw); }
 }
 
+setVariables();
+path_complete = true;
 init();
