@@ -16,6 +16,7 @@ var h_circ;
 var h_radius;
 
 var rotate;
+var sp_count;
 
 var trace;
 var tpen_x;
@@ -59,6 +60,7 @@ function setVariables() {
 	h_radius = h_circ / 2*Math.PI;
 
 	rotate = 0;
+	sp_count = 0;
 	
 	trace = new Path2D();
 	tpen_x = x;
@@ -67,7 +69,7 @@ function setVariables() {
 	path_start_x = 0;
 	path_start_y = 0;
 	
-	resolution = Number(document.getElementById('speed').value);;
+	resolution = Number(document.getElementById('speed').value);
 }
 
 function redraw() {
@@ -422,7 +424,7 @@ context.stroke(trace);
 // Increment rotate variable based on resolution speed //
 /////////////////////////////////////////////////////////
 
-rotate = rotate + Math.PI / 180 * resolution;
+rotate = rotate + Math.PI / 360;
 
 ////////////////////////////////////////
 // Populate dubug monitor if required //
@@ -440,7 +442,13 @@ if (Math.abs(tpen_x - path_start_x) <= 0.01 && Math.abs(tpen_y - path_start_y) <
 // Loop drawing function if trace line remains open //
 //////////////////////////////////////////////////////
 
-if (!path_complete) { window.requestAnimationFrame(draw); }
+sp_count++;
+if (!path_complete && sp_count >= resolution) {
+	sp_count = 0;
+	window.requestAnimationFrame(draw);
+} else if (!path_complete && sp_count < resolution) {
+	draw();
+}
 }
 
 setVariables();
