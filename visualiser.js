@@ -210,9 +210,12 @@ function buttonDraw() {
 }
 
 function draw() {
-i = 0;
-j = 0;
 
+//////////////////////////////////
+// Clear canvas for new drawing //
+//////////////////////////////////
+
+// Clear rectangle full height and width of canvas	
 context.clearRect(0,0,my_canvas.width,my_canvas.height);
 
 //////////////////////////////////////////////
@@ -266,8 +269,7 @@ var side_seg = Math.floor(circ_prog / seg_circ);
 var side_prog = circ_prog - (seg_circ * side_seg);
 
 // Calculate number of teeth on each corner/edge arc
-var tooth_ratio = teeth / (c_circ + e_circ);
-var c_seg = c_circ * tooth_ratio * (2 * seg_break / Math.PI);
+var c_seg = c_circ * (seg_break / Math.PI);
 var e_seg = seg_circ - c_seg;
 debug_txt = teeth;
 
@@ -426,7 +428,7 @@ rotate = rotate + Math.PI / 180 * resolution;
 // Populate dubug monitor if required //
 ////////////////////////////////////////
 
-//context.fillText(debug_txt,10,10);
+context.fillText(debug_txt,10,10);
 
 ////////////////////////////////////////////////
 // Check for trace path closure within 0.01px //
