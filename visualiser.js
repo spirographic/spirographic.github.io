@@ -51,7 +51,7 @@ function setVariables() {
 	c_radius = c_circ / 2*Math.PI;
 	e_circ = Number(document.getElementById('e_size').value);
 	e_radius = e_circ / 2*Math.PI;
-	g_radius = c_radius / Math.cos(Math.PI / (c_nodes * 2));
+	g_radius = (e_radius - c_radius) * (Number(document.getElementById('ratio').value)/100);
 	
 	p_offset_x = Number(document.getElementById('poff_x').value);
 	p_offset_y = Number(document.getElementById('poff_y').value);
@@ -245,6 +245,9 @@ var seg_break = Math.PI / c_nodes - Math.asin(side_length / (e_radius - c_radius
 // Use calculated angle to find number of teeth on gear
 teeth = Math.round(c_nodes * (seg_break / Math.PI * c_circ + ((2 * Math.PI / c_nodes) - 2 * seg_break) / (2 * Math.PI) * e_circ));
 
+// Update gearTeeth span with calculated teeth value
+document.getElementById('gearTeeth').innerHTML = teeth;
+
 //////////////////////////////////////////////////
 // Calculate closest segment break to intercept //
 //////////////////////////////////////////////////
@@ -273,7 +276,6 @@ var side_prog = circ_prog - (seg_circ * side_seg);
 // Calculate number of teeth on each corner/edge arc
 var c_seg = c_circ * (seg_break / Math.PI);
 var e_seg = seg_circ - c_seg;
-debug_txt = teeth;
 
 // Determine whether intercept lies on corner or edge
 if (side_prog - (c_seg/2) <= 0) {

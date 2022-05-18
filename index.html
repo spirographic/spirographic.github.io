@@ -28,19 +28,21 @@
 <body>
 <div class="menu" id="menu">
 	<label for="nodes">Corner count:</label>
-	<input type="number" id="nodes" name="nodes" onChange="redraw()" value='3'><br><br>
+	<input type="number" id="nodes" name="nodes" onChange="redraw()" value="3"><br><br>
 	<label for="c_size">Corner size:</label>
-	<input type="number" id="c_size" name="c_size" onChange="redraw()" value='30'><br><br>
+	<input type="number" id="c_size" name="c_size" onChange="redraw()" value="30"><br><br>
 	<label for="e_size">Edge size:</label>
-	<input type="number" id="e_size" name="e_size" onChange="redraw()" value='90'><br><br>
+	<input type="number" id="e_size" name="e_size" onChange="redraw()" value="90"><br><br>
+	<label for="ratio">Tooth balance:</label>
+	<input type="range" min="1" max="100" name="ratio" id="ratio" onInput="redraw()" value="58"> <span id="gearTeeth"></span><br /><br />
 	<label for="h_size">Hoop size:</label>
-	<input type="number" id="h_size" name="h_size" onChange="redraw()" value='160'><br><br>
+	<input type="number" id="h_size" name="h_size" onChange="redraw()" value="160"><br><br>
 	<label for="poff_x">Pen offset (x):</label>
-	<input type="number" id="poff_x" name="poff_x" onChange="redraw()" value='-50'><br><br>
+	<input type="number" id="poff_x" name="poff_x" onChange="redraw()" value="-50"><br><br>
 	<label for="poff_y">Pen offset (y):</label>
-	<input type="number" id="poff_y" name="poff_y" onChange="redraw()" value='0'><br><br>
+	<input type="number" id="poff_y" name="poff_y" onChange="redraw()" value="0"><br><br>
 	<label for="speed">Draw speed:</label>
-	<input type="number" id="speed" name="speed" onChange="redraw()" value='10'><br><br>
+	<input type="number" id="speed" name="speed" onChange="redraw()" value="10"><br><br>
 	<button onclick="buttonDraw()">Draw</button>
 </div>
 
