@@ -25,6 +25,11 @@ var path_complete;
 var path_start_x;
 var path_start_y;
 
+var side_length;
+var mid_displace;
+var ec_offset;
+var seg_break;
+
 var resolution;
 
 var h = 0;
@@ -37,6 +42,8 @@ const e_y = [];
 
 const breakpoints = [];
 
+const gear_shapes = [];
+
 var x = window.innerWidth/2;
 var y = window.innerHeight/2;
 
@@ -46,6 +53,8 @@ var ty = 0;
 var debug_txt = '';
 
 function setVariables() {
+	context.setTransform(1,0,0,1,x,y);
+	
 	c_nodes = Number(document.getElementById('nodes').value);
 	c_circ = Number(document.getElementById('c_size').value);
 	c_radius = c_circ / 2*Math.PI;
@@ -203,7 +212,7 @@ for (let i = 0; i < c_x.length; i++) {
 function init() {
 	my_canvas.width = window.innerWidth;
     my_canvas.height = window.innerHeight;
-	window.requestAnimationFrame(draw);
+	beginDraw();
 }
 
 function buttonDraw() {
@@ -211,32 +220,24 @@ function buttonDraw() {
 	init();
 }
 
-function draw() {
-
-//////////////////////////////////
-// Clear canvas for new drawing //
-//////////////////////////////////
-
-// Clear rectangle full height and width of canvas	
-context.clearRect(0,0,my_canvas.width,my_canvas.height);
-
+function beginDraw() {
 //////////////////////////////////////////////
 // Calculate displacement of corner centers //
 //////////////////////////////////////////////
 
 // Side length of polygon inscribed in circle (halved)
-var side_length = g_radius * Math.sin(Math.PI/c_nodes);
+side_length = g_radius * Math.sin(Math.PI/c_nodes);
 // Pythagorean theorem to get third side of right triangle
-var mid_displace = Math.sqrt(Math.pow(g_radius,2) - Math.pow(side_length,2));
+mid_displace = Math.sqrt(Math.pow(g_radius,2) - Math.pow(side_length,2));
 // Pythagoras again to find displacement from corner-corner line
-var ec_offset = Math.sqrt(Math.pow(e_radius - c_radius,2) - Math.pow(side_length,2)) - mid_displace;
+ec_offset = Math.sqrt(Math.pow(e_radius - c_radius,2) - Math.pow(side_length,2)) - mid_displace;
 
 ////////////////////////////////////
 // Calculate segment break angles //
 ////////////////////////////////////
 
 // Trig to find angle of corner arc from edge arc center
-var seg_break = Math.PI / c_nodes - Math.asin(side_length / (e_radius - c_radius));
+seg_break = Math.PI / c_nodes - Math.asin(side_length / (e_radius - c_radius));
 
 ///////////////////////////////////////
 // Calculate number of teeth on gear //
@@ -247,6 +248,66 @@ teeth = Math.round(c_nodes * (seg_break / Math.PI * c_circ + ((2 * Math.PI / c_n
 
 // Update gearTeeth span with calculated teeth value
 document.getElementById('gearTeeth').innerHTML = teeth;
+
+////////////////////////////////////////
+// Calculate and save gear shape path //
+////////////////////////////////////////
+
+// Set new path into gear shape array
+gear_shapes[0] = new Path2D();
+
+// Loop through 360 degrees to outline gear
+for (let i = 0; i <= 360; i++) {
+	// Convert i degrees to j radians
+	j = i * Math.PI / 180;
+  
+	// Calculate closest segment break using same method
+	// as used to find intercept
+	var broad_seg = Math.floor(c_nodes / 360 * i);
+	var broad_prog = (c_nodes / 360 * i - broad_seg) * (2 * Math.PI / c_nodes);
+	var seg = broad_seg;
+	if (broad_prog <= seg_break) {
+		seg = broad_seg * 2;
+	} else if (broad_prog >= (2 * Math.PI / c_nodes) - seg_break) {
+		seg = broad_seg * 2 + 2;
+	} else {
+		seg = broad_seg * 2 + 1;
+	}
+	var seg_a = Math.PI * 2 / (c_nodes * 2) * seg;
+  
+	// Calculate rotation center
+	var r_x = x;
+	var r_y = y;
+	if ((seg) % 2 == 0) {
+		r_x = Math.cos(seg_a) * g_radius;
+		r_y = Math.sin(seg_a) * g_radius;
+		tx = r_x + Math.cos(j) * c_radius;
+		ty = r_y + Math.sin(j) * c_radius;
+	} else {
+		r_x = Math.cos(seg_a) * (-ec_offset);
+		r_y = Math.sin(seg_a) * (-ec_offset);
+		tx = r_x + Math.cos(j) * e_radius;
+		ty = r_y + Math.sin(j) * e_radius;
+	}
+  
+	// Add line segment to shape path
+	gear_shapes[0].lineTo(tx,ty);
+}
+
+window.requestAnimationFrame(loopDraw);
+}
+
+function loopDraw() {
+
+//////////////////////////////////
+// Clear canvas for new drawing //
+//////////////////////////////////
+
+// Reset canvas transform
+context.setTransform(1,0,0,1,x,y);
+
+// Clear rectangle full height and width of canvas	
+context.clearRect(-my_canvas.width/2,-my_canvas.height/2,my_canvas.width,my_canvas.height);
 
 //////////////////////////////////////////////////
 // Calculate closest segment break to intercept //
@@ -294,13 +355,13 @@ if (side_prog - (c_seg/2) <= 0) {
 var rotseg_a = (Math.PI * 2) / (c_nodes * 2) * rotseg;
 
 let intercept = new Path2D();
-intercept.moveTo(x,y);
+intercept.moveTo(0,0);
 
 if(rotseg % 2 == 0) {
 	seg_angle = (2*rotseg) * (Math.PI / (2*c_nodes));
 	seg_angle = seg_angle + ((seg_prog / c_seg) * (2 * seg_break));
-	rot_x = x + Math.cos(rotseg_a) * g_radius;
-	rot_y = y + Math.sin(rotseg_a) * g_radius;
+	rot_x = Math.cos(rotseg_a) * g_radius;
+	rot_y = Math.sin(rotseg_a) * g_radius;
 	intercept.lineTo(rot_x,rot_y);
 	intercept_x = rot_x + Math.cos(seg_angle) * c_radius;
 	intercept_y = rot_y + Math.sin(seg_angle) * c_radius;
@@ -308,8 +369,8 @@ if(rotseg % 2 == 0) {
 } else {
 	seg_angle = (2*(rotseg-1)) * (Math.PI / (2*c_nodes)) + seg_break;
 	seg_angle = seg_angle + ((seg_prog / e_seg) * (2 * Math.PI / c_nodes - 2*seg_break));
-	rot_x = x + Math.cos(rotseg_a) * -ec_offset;
-	rot_y = y + Math.sin(rotseg_a) * -ec_offset;
+	rot_x = Math.cos(rotseg_a) * -ec_offset;
+	rot_y = Math.sin(rotseg_a) * -ec_offset;
 	intercept.lineTo(rot_x,rot_y);
 	intercept_x = rot_x + Math.cos(seg_angle) * e_radius;
 	intercept_y = rot_y + Math.sin(seg_angle) * e_radius;
@@ -317,13 +378,16 @@ if(rotseg % 2 == 0) {
 }
 //context.stroke(intercept);
 
-var x_displace = x + (Math.cos(rotate)*h_radius - intercept_x);
-var y_displace = y + (Math.sin(rotate)*h_radius - intercept_y);
-var x_focus = x + (Math.cos(rotate)*h_radius);
-var y_focus = y + (Math.sin(rotate)*h_radius);
+var x_displace = (Math.cos(rotate)*h_radius) - intercept_x;
+var y_displace = (Math.sin(rotate)*h_radius) - intercept_y;
+var mod_dangle = Math.atan(y_displace/x_displace);
+if (x_displace < 0) { mod_dangle = mod_dangle + Math.PI; }
+var mod_displace = Math.hypot(x_displace, y_displace);
+var x_focus = (Math.cos(rotate)*h_radius);
+var y_focus = (Math.sin(rotate)*h_radius);
 
-tpen_x = x + p_offset_x;
-tpen_y = y + p_offset_y;
+tpen_x = p_offset_x;
+tpen_y = p_offset_y;
 tpen_x = tpen_x + x_displace;
 tpen_y = tpen_y + y_displace;
 var rot_pen = Math.atan((y_focus - tpen_y)/(x_focus - tpen_x));
@@ -345,66 +409,28 @@ if (rotate == 0) {
 	path_start_y = tpen_y;
 }
 
-////////////////////////////////////
-// Create path to draw gear shape //
-////////////////////////////////////
+//////////////////////////////////////////
+// Draw gear shape from intercept point //
+//////////////////////////////////////////
 
-// Initalise path object
-let shape = new Path2D();
+// Save canvas and translate to intercept point
+context.save();
+context.translate(intercept_x, intercept_y);
 
-// Loop through 360 degrees to outline gear
-for (let i = 0; i <= 360; i++) {
-	// Convert i degrees to j radians
-	j = i * Math.PI / 180;
-  
-	// Calculate closest segment break using same method
-	// as used to find intercept
-	var broad_seg = Math.floor(c_nodes / 360 * i);
-	var broad_prog = (c_nodes / 360 * i - broad_seg) * (2 * Math.PI / c_nodes);
-	var seg = broad_seg;
-	if (broad_prog <= seg_break) {
-		seg = broad_seg * 2;
-	} else if (broad_prog >= (2 * Math.PI / c_nodes) - seg_break) {
-		seg = broad_seg * 2 + 2;
-	} else {
-		seg = broad_seg * 2 + 1;
-	}
-	var seg_a = Math.PI * 2 / (c_nodes * 2) * seg;
-  
-	// Calculate rotation center
-	var r_x = x;
-	var r_y = y;
-	if ((seg) % 2 == 0) {
-		r_x = x + Math.cos(seg_a) * g_radius;
-		r_y = y + Math.sin(seg_a) * g_radius;
-		tx = r_x + Math.cos(j) * c_radius;
-		ty = r_y + Math.sin(j) * c_radius;
-	} else {
-		r_x = x + Math.cos(seg_a) * (-ec_offset);
-		r_y = y + Math.sin(seg_a) * (-ec_offset);
-		tx = r_x + Math.cos(j) * e_radius;
-		ty = r_y + Math.sin(j) * e_radius;
-	}
-    
-	// Add displacement around hoop circumference using
-	// linear offset calculated above at intercept
-	tx = tx + x_displace;
-	ty = ty + y_displace;
-   
-	// Add shape rotation using rotation offset
-	// calculated above at intercept
-	var rot_draw = Math.atan((y_focus - ty)/(x_focus - tx));
-	if (x_focus - tx < 0) { rot_draw = rot_draw + Math.PI; }
-	var disp_draw = Math.hypot(x_focus - tx, y_focus - ty);
-	tx = x_focus - Math.cos(rot_draw + rotate - seg_angle) * disp_draw;
-	ty = y_focus - Math.sin(rot_draw + rotate - seg_angle) * disp_draw;
-  
-	// Add line segment to shape path
-	shape.lineTo(tx,ty);
-}
+// Rotate shape around new origin and translate to origin
+context.rotate(rotate-seg_angle);
+context.translate(-intercept_x, -intercept_y);
+
+// Translate shape to focus point after inverting rotation of context
+context.translate(Math.cos(mod_dangle - (rotate-seg_angle)) * mod_displace,Math.sin(mod_dangle - (rotate-seg_angle)) * mod_displace);
+
+// Draw shape at displacement coordinates
 context.lineWidth = 1;
 context.strokeStyle = 'blue';
-context.stroke(shape);
+context.stroke(gear_shapes[0]);
+
+// Restore canvas to saved state
+context.restore();
 
 ///////////////////////////////////////////
 // Draw hoop circumference in light grey //
@@ -412,7 +438,7 @@ context.stroke(shape);
 
 context.beginPath();
 context.strokeStyle = 'lightgrey';
-context.arc(x,y,h_radius,0,2*Math.PI);
+context.arc(0,0,h_radius,0,2*Math.PI);
 context.stroke();
 
 /////////////////////////////////////
@@ -432,7 +458,7 @@ rotate = rotate + Math.PI / 360;
 // Populate dubug monitor if required //
 ////////////////////////////////////////
 
-context.fillText(debug_txt,10,10);
+context.fillText(debug_txt,-300,-300);
 
 ////////////////////////////////////////////////
 // Check for trace path closure within 0.01px //
@@ -447,9 +473,9 @@ if (Math.abs(tpen_x - path_start_x) <= 0.01 && Math.abs(tpen_y - path_start_y) <
 sp_count++;
 if (!path_complete && sp_count >= resolution) {
 	sp_count = 0;
-	window.requestAnimationFrame(draw);
+	window.requestAnimationFrame(loopDraw);
 } else if (!path_complete && sp_count < resolution) {
-	draw();
+	loopDraw();
 }
 }
 
