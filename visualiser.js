@@ -1,19 +1,26 @@
 var my_canvas = document.getElementById('canvas'),
     context = my_canvas.getContext("2d");
 
-var	c_nodes;
-var	c_circ;
-var	c_radius;
-var	e_circ;
-var	e_radius;
-var	g_radius;
-var teeth;
+const c_nodes = [];
+const c_circ = [];
+const c_radius = [];
+const e_circ = [];
+const e_radius = [];
+const g_radius = [];
+const teeth = [];
+
+const cut_c_nodes = [];
+const cut_c_circ = [];
+const cut_c_radius = [];
+const cut_e_circ = [];
+const cut_e_radius = [];
+const cut_g_radius = [];
+const cut_teeth = [];
+const cut_offset_x = [];
+const cut_offset_y = [];
 
 var p_offset_x;
 var p_offset_y;
-
-var h_circ;
-var h_radius;
 
 var rotate;
 var sp_count;
@@ -27,8 +34,13 @@ var path_start_y;
 
 var side_length;
 var mid_displace;
-var ec_offset;
-var seg_break;
+const ec_offset = [];
+const seg_break = [];
+
+var cut_side_length;
+var cut_mid_displace;
+const cut_ec_offset = [];
+const cut_seg_break = [];
 
 var resolution;
 
@@ -43,6 +55,27 @@ const e_y = [];
 const breakpoints = [];
 
 const gear_shapes = [];
+const cutout_shapes = [];
+
+let gearboxes = [];
+
+const gearList = document.getElementById('gearList');
+
+const gearSetup = [
+	{ type: 'number', id: 'nodes_', func: function() {redraw();}, value: '3', label: 'Corner count:' },
+	{ type: 'number', id: 'c_size_', func: function() {redraw();}, value: '30', label: 'Corner size:' },
+	{ type: 'number', id: 'e_size_', func: function() {redraw();}, value: '90', label: 'Edge size:' },
+	{ type: 'range', id: 'ratio_', func: function() {redraw();}, value: '58', label: 'Tooth balance:' }
+];
+
+const cutoutSetup = [
+	{ type: 'number', id: 'cut_nodes_', func: function() {redraw();}, value: '3', label: 'Corner count:' },
+	{ type: 'number', id: 'cut_c_size_', func: function() {redraw();}, value: '30', label: 'Corner size:' },
+	{ type: 'number', id: 'cut_e_size_', func: function() {redraw();}, value: '90', label: 'Edge size:' },
+	{ type: 'range', id: 'cut_ratio_', func: function() {redraw();}, value: '58', label: 'Tooth balance:' },
+	{ type: 'number', id: 'cut_x_offset_', func: function() {redraw();}, value: '0', label: 'X-axis offset:' },
+	{ type: 'number', id: 'cut_y_offset_', func: function() {redraw();}, value: '0', label: 'Y-axis offset:' }
+];
 
 var x = window.innerWidth/2;
 var y = window.innerHeight/2;
@@ -55,18 +88,30 @@ var debug_txt = '';
 function setVariables() {
 	context.setTransform(1,0,0,1,x,y);
 	
-	c_nodes = Number(document.getElementById('nodes').value);
-	c_circ = Number(document.getElementById('c_size').value);
-	c_radius = c_circ / 2*Math.PI;
-	e_circ = Number(document.getElementById('e_size').value);
-	e_radius = e_circ / 2*Math.PI;
-	g_radius = (e_radius - c_radius) * (Number(document.getElementById('ratio').value)/100);
+	gearboxes = document.getElementsByClassName('gearBox');
+	
+	for (let i = 0; i < gearboxes.length; i++){
+		c_nodes[i] = Number(document.getElementById('nodes_'+i).value);
+		c_circ[i] = Number(document.getElementById('c_size_'+i).value);
+		c_radius[i] = c_circ[i] / 2*Math.PI;
+		e_circ[i] = Number(document.getElementById('e_size_'+i).value);
+		e_radius[i] = e_circ[i] / 2*Math.PI;
+		g_radius[i] = (e_radius[i] - c_radius[i]) * (Number(document.getElementById('ratio_'+i).value)/100);
+	}
+	
+	for (let i = 0; i < (gearboxes.length - 1); i++){
+		cut_c_nodes[i] = Number(document.getElementById('cut_nodes_'+i).value);
+		cut_c_circ[i] = Number(document.getElementById('cut_c_size_'+i).value);
+		cut_c_radius[i] = cut_c_circ[i] / 2*Math.PI;
+		cut_e_circ[i] = Number(document.getElementById('cut_e_size_'+i).value);
+		cut_e_radius[i] = cut_e_circ[i] / 2*Math.PI;
+		cut_g_radius[i] = (cut_e_radius[i] - cut_c_radius[i]) * (Number(document.getElementById('cut_ratio_'+i).value)/100);
+		cut_offset_x[i] = Number(document.getElementById('cut_x_offset_'+i).value);
+		cut_offset_y[i] = Number(document.getElementById('cut_y_offset_'+i).value);
+	}
 	
 	p_offset_x = Number(document.getElementById('poff_x').value);
 	p_offset_y = Number(document.getElementById('poff_y').value);
-
-	h_circ = Number(document.getElementById('h_size').value);
-	h_radius = h_circ / 2*Math.PI;
 
 	rotate = 0;
 	sp_count = 0;
@@ -85,6 +130,97 @@ function redraw() {
 	setVariables();
 	path_complete = true;
 	init();
+}
+
+function addGear() {
+	///////////////////////////////////////////////////////////
+	// Create labels and inputs for cutout on preceding gear //
+	///////////////////////////////////////////////////////////
+	
+	// Select preceding gear and create div for cutout controls
+	let lastGear = document.getElementById('gear_' + (gearboxes.length - 1));
+	let newCutout = document.createElement('div');
+	newCutout.className = 'cutout';
+	newCutout.id = 'cutout_' + (gearboxes.length - 1);
+	
+	// Define cutout labels and inputs
+	for (let i = 0; i < cutoutSetup.length; i++) {
+		let newLabel = document.createElement('label');
+		newLabel.htmlFor = cutoutSetup[i].id + (gearboxes.length - 1);
+		let newLabelText = document.createTextNode(cutoutSetup[i].label);
+		newLabel.appendChild(newLabelText);
+		let newInput = document.createElement('input');
+		newInput.type = cutoutSetup[i].type;
+		newInput.id = cutoutSetup[i].id + (gearboxes.length - 1);
+		newInput.name = cutoutSetup[i].id + (gearboxes.length - 1);
+		newInput.value = cutoutSetup[i].value;
+		if (cutoutSetup[i].type == 'range') {
+			newInput.min = '1';
+			newInput.max = '100';
+			newInput.addEventListener('input', cutoutSetup[i].func);
+		}
+		newInput.addEventListener('change', cutoutSetup[i].func);
+		newCutout.appendChild(newLabel);
+		newCutout.appendChild(newInput);
+		if (cutoutSetup[i].type == 'range') {
+			let newSpan = document.createElement('span');
+			newSpan.id = 'cut_gearTeeth_' + (gearboxes.length - 1);
+			newCutout.appendChild(newSpan);
+		}
+		newCutout.appendChild(document.createElement('br'));
+	}
+	newCutout.appendChild(document.createElement('br'));
+	lastGear.appendChild(newCutout);
+	
+	/////////////////////////////////////////
+	// Create div for new gear information //
+	/////////////////////////////////////////
+	
+	// Create DOM element
+	const newGear = document.createElement('div');
+	
+	// Set class and ID
+	newGear.className = 'gearBox';
+	newGear.id = 'gear_' + gearboxes.length;
+	
+	///////////////////////////////////////////
+	// Create labels and inputs for new gear //
+	///////////////////////////////////////////
+	
+	// Define new labels and inputs
+	for (let i = 0; i < gearSetup.length; i++) {
+		let newLabel = document.createElement('label');
+		newLabel.htmlFor = gearSetup[i].id + gearboxes.length;
+		let newLabelText = document.createTextNode(gearSetup[i].label);
+		newLabel.appendChild(newLabelText);
+		let newInput = document.createElement('input');
+		newInput.type = gearSetup[i].type;
+		newInput.id = gearSetup[i].id + gearboxes.length;
+		newInput.name = gearSetup[i].id + gearboxes.length;
+		newInput.value = gearSetup[i].value;
+		if (gearSetup[i].type == 'range') {
+			newInput.min = '1';
+			newInput.max = '100';
+			newInput.addEventListener('input', gearSetup[i].func);
+		}
+		newInput.addEventListener('change', gearSetup[i].func);
+		newGear.appendChild(newLabel);
+		newGear.appendChild(newInput);
+		if (gearSetup[i].type == 'range') {
+			let newSpan = document.createElement('span');
+			newSpan.id = 'gearTeeth_' + gearboxes.length;
+			newGear.appendChild(newSpan);
+		}
+		newGear.appendChild(document.createElement('br'));
+	}
+	newGear.appendChild(document.createElement('br'));
+	gearList.appendChild(newGear);
+	
+	////////////////////////
+	// Redraw gear system //
+	////////////////////////
+	
+	redraw();
 }
 
 function debug() {
@@ -220,79 +356,170 @@ function buttonDraw() {
 	init();
 }
 
-function beginDraw() {
-//////////////////////////////////////////////
-// Calculate displacement of corner centers //
-//////////////////////////////////////////////
-
-// Side length of polygon inscribed in circle (halved)
-side_length = g_radius * Math.sin(Math.PI/c_nodes);
-// Pythagorean theorem to get third side of right triangle
-mid_displace = Math.sqrt(Math.pow(g_radius,2) - Math.pow(side_length,2));
-// Pythagoras again to find displacement from corner-corner line
-ec_offset = Math.sqrt(Math.pow(e_radius - c_radius,2) - Math.pow(side_length,2)) - mid_displace;
-
-////////////////////////////////////
-// Calculate segment break angles //
-////////////////////////////////////
-
-// Trig to find angle of corner arc from edge arc center
-seg_break = Math.PI / c_nodes - Math.asin(side_length / (e_radius - c_radius));
-
-///////////////////////////////////////
-// Calculate number of teeth on gear //
-///////////////////////////////////////
-
-// Use calculated angle to find number of teeth on gear
-teeth = Math.round(c_nodes * (seg_break / Math.PI * c_circ + ((2 * Math.PI / c_nodes) - 2 * seg_break) / (2 * Math.PI) * e_circ));
-
-// Update gearTeeth span with calculated teeth value
-document.getElementById('gearTeeth').innerHTML = teeth;
-
-////////////////////////////////////////
-// Calculate and save gear shape path //
-////////////////////////////////////////
-
-// Set new path into gear shape array
-gear_shapes[0] = new Path2D();
-
-// Loop through 360 degrees to outline gear
-for (let i = 0; i <= 360; i++) {
-	// Convert i degrees to j radians
-	j = i * Math.PI / 180;
-  
-	// Calculate closest segment break using same method
-	// as used to find intercept
-	var broad_seg = Math.floor(c_nodes / 360 * i);
-	var broad_prog = (c_nodes / 360 * i - broad_seg) * (2 * Math.PI / c_nodes);
-	var seg = broad_seg;
-	if (broad_prog <= seg_break) {
-		seg = broad_seg * 2;
-	} else if (broad_prog >= (2 * Math.PI / c_nodes) - seg_break) {
-		seg = broad_seg * 2 + 2;
-	} else {
-		seg = broad_seg * 2 + 1;
-	}
-	var seg_a = Math.PI * 2 / (c_nodes * 2) * seg;
-  
-	// Calculate rotation center
-	var r_x = x;
-	var r_y = y;
-	if ((seg) % 2 == 0) {
-		r_x = Math.cos(seg_a) * g_radius;
-		r_y = Math.sin(seg_a) * g_radius;
-		tx = r_x + Math.cos(j) * c_radius;
-		ty = r_y + Math.sin(j) * c_radius;
-	} else {
-		r_x = Math.cos(seg_a) * (-ec_offset);
-		r_y = Math.sin(seg_a) * (-ec_offset);
-		tx = r_x + Math.cos(j) * e_radius;
-		ty = r_y + Math.sin(j) * e_radius;
-	}
-  
-	// Add line segment to shape path
-	gear_shapes[0].lineTo(tx,ty);
+function buttonStop() {
+	path_complete = true;
 }
+
+function beginDraw() {
+	////////////////////////////
+	// Loop through all gears //
+	////////////////////////////
+	
+	for (let g = 0; g < gearboxes.length; g++) {
+
+		//////////////////////////////////////////////
+		// Calculate displacement of corner centers //
+		//////////////////////////////////////////////
+
+		// Side length of polygon inscribed in circle (halved)
+		side_length = g_radius[g] * Math.sin(Math.PI/c_nodes[g]);
+		// Pythagorean theorem to get third side of right triangle
+		mid_displace = Math.sqrt(Math.pow(g_radius[g],2) - Math.pow(side_length,2));
+		// Pythagoras again to find displacement from corner-corner line
+		ec_offset[g] = Math.sqrt(Math.pow(e_radius[g] - c_radius[g],2) - Math.pow(side_length,2)) - mid_displace;
+
+		////////////////////////////////////
+		// Calculate segment break angles //
+		////////////////////////////////////
+
+		// Trig to find angle of corner arc from edge arc center
+		seg_break[g] = Math.PI / c_nodes[g] - Math.asin(side_length / (e_radius[g] - c_radius[g]));
+
+		///////////////////////////////////////
+		// Calculate number of teeth on gear //
+		///////////////////////////////////////
+
+		// Use calculated angle to find number of teeth on gear
+		teeth[g] = Math.round(c_nodes[g] * (seg_break[g] / Math.PI * c_circ[g] + ((2 * Math.PI / c_nodes[g]) - 2 * seg_break[g]) / (2 * Math.PI) * e_circ[g]));
+
+		// Update gearTeeth span with calculated teeth value
+		document.getElementById('gearTeeth_'+g).innerHTML = teeth[g];
+
+		////////////////////////////////////////
+		// Calculate and save gear shape path //
+		////////////////////////////////////////
+
+		// Set new path into gear shape array
+		gear_shapes[g] = new Path2D();
+
+		// Loop through 360 degrees to outline gear
+		for (let i = 0; i <= 360; i++) {
+			// Convert i degrees to j radians
+			j = i * Math.PI / 180;
+  
+			// Calculate closest segment break using same method
+			// as used to find intercept
+			var broad_seg = Math.floor(c_nodes[g] / 360 * i);
+			var broad_prog = (c_nodes[g] / 360 * i - broad_seg) * (2 * Math.PI / c_nodes[g]);
+			var seg = broad_seg;
+			if (broad_prog <= seg_break[g]) {
+				seg = broad_seg * 2;
+			} else if (broad_prog >= (2 * Math.PI / c_nodes[g]) - seg_break[g]) {
+				seg = broad_seg * 2 + 2;
+			} else {
+				seg = broad_seg * 2 + 1;
+			}
+			var seg_a = Math.PI * 2 / (c_nodes[g] * 2) * seg;
+  
+			// Calculate rotation center
+			var r_x = x;
+			var r_y = y;
+			if ((seg) % 2 == 0) {
+				r_x = Math.cos(seg_a) * g_radius[g];
+				r_y = Math.sin(seg_a) * g_radius[g];
+				tx = r_x + Math.cos(j) * c_radius[g];
+				ty = r_y + Math.sin(j) * c_radius[g];
+			} else {
+				r_x = Math.cos(seg_a) * (-ec_offset[g]);
+				r_y = Math.sin(seg_a) * (-ec_offset[g]);
+				tx = r_x + Math.cos(j) * e_radius[g];
+				ty = r_y + Math.sin(j) * e_radius[g];
+			}
+  
+			// Add line segment to shape path
+			gear_shapes[g].lineTo(tx,ty);		
+		}
+		
+		/////////////////////////////////////////////////
+		// If gear has a cutout, calculate cutout path //
+		/////////////////////////////////////////////////
+		
+		if (g < gearboxes.length - 1) {
+			
+			//////////////////////////////////////////////
+			// Calculate displacement of corner centers //
+			//////////////////////////////////////////////
+
+			// Side length of polygon inscribed in circle (halved)
+			cut_side_length = cut_g_radius[g] * Math.sin(Math.PI/cut_c_nodes[g]);
+			// Pythagorean theorem to get third side of right triangle
+			cut_mid_displace = Math.sqrt(Math.pow(cut_g_radius[g],2) - Math.pow(cut_side_length,2));
+			// Pythagoras again to find displacement from corner-corner line
+			cut_ec_offset[g] = Math.sqrt(Math.pow(cut_e_radius[g] - cut_c_radius[g],2) - Math.pow(cut_side_length,2)) - cut_mid_displace;
+
+		////////////////////////////////////
+		// Calculate segment break angles //
+		////////////////////////////////////
+
+		// Trig to find angle of corner arc from edge arc center
+		cut_seg_break[g] = Math.PI / cut_c_nodes[g] - Math.asin(cut_side_length / (cut_e_radius[g] - cut_c_radius[g]));
+
+		///////////////////////////////////////
+		// Calculate number of teeth on gear //
+		///////////////////////////////////////
+
+		// Use calculated angle to find number of teeth on gear
+		cut_teeth[g] = Math.round(cut_c_nodes[g] * (cut_seg_break[g] / Math.PI * cut_c_circ[g] + ((2 * Math.PI / cut_c_nodes[g]) - 2 * cut_seg_break[g]) / (2 * Math.PI) * cut_e_circ[g]));
+
+		// Update gearTeeth span with calculated teeth value
+		document.getElementById('cut_gearTeeth_'+g).innerHTML = cut_teeth[g];
+
+		////////////////////////////////////////
+		// Calculate and save gear shape path //
+		////////////////////////////////////////
+
+		// Set new path into gear shape array
+		cutout_shapes[g] = new Path2D();
+
+		// Loop through 360 degrees to outline gear
+		for (let i = 0; i <= 360; i++) {
+			// Convert i degrees to j radians
+			j = i * Math.PI / 180;
+  
+			// Calculate closest segment break using same method
+			// as used to find intercept
+			var broad_seg = Math.floor(cut_c_nodes[g] / 360 * i);
+			var broad_prog = (cut_c_nodes[g] / 360 * i - broad_seg) * (2 * Math.PI / cut_c_nodes[g]);
+			var seg = broad_seg;
+			if (broad_prog <= cut_seg_break[g]) {
+				seg = broad_seg * 2;
+			} else if (broad_prog >= (2 * Math.PI / cut_c_nodes[g]) - cut_seg_break[g]) {
+				seg = broad_seg * 2 + 2;
+			} else {
+				seg = broad_seg * 2 + 1;
+			}
+			var seg_a = Math.PI * 2 / (cut_c_nodes[g] * 2) * seg;
+  
+			// Calculate rotation center
+			var r_x = x;
+			var r_y = y;
+			if ((seg) % 2 == 0) {
+				r_x = Math.cos(seg_a) * cut_g_radius[g];
+				r_y = Math.sin(seg_a) * cut_g_radius[g];
+				tx = r_x + Math.cos(j) * cut_c_radius[g];
+				ty = r_y + Math.sin(j) * cut_c_radius[g];
+			} else {
+				r_x = Math.cos(seg_a) * (-cut_ec_offset[g]);
+				r_y = Math.sin(seg_a) * (-cut_ec_offset[g]);
+				tx = r_x + Math.cos(j) * cut_e_radius[g];
+				ty = r_y + Math.sin(j) * cut_e_radius[g];
+			}
+  
+			// Add line segment to shape path
+			cutout_shapes[g].lineTo(tx,ty);		
+		}
+		}	
+	}
 
 window.requestAnimationFrame(loopDraw);
 }
@@ -303,181 +530,218 @@ function loopDraw() {
 // Clear canvas for new drawing //
 //////////////////////////////////
 
-// Reset canvas transform
-context.setTransform(1,0,0,1,x,y);
+	// Reset canvas transform
+	context.setTransform(1,0,0,1,x,y);
 
-// Clear rectangle full height and width of canvas	
-context.clearRect(-my_canvas.width/2,-my_canvas.height/2,my_canvas.width,my_canvas.height);
+	// Clear rectangle full height and width of canvas	
+	context.clearRect(-my_canvas.width/2,-my_canvas.height/2,my_canvas.width,my_canvas.height);
 
-//////////////////////////////////////////////////
-// Calculate closest segment break to intercept //
-//////////////////////////////////////////////////
+////////////////////////////
+// Loop through all gears //
+////////////////////////////
 
-var rotseg = 0;
-var seg_prog = 0;
-var seg_angle = 0;
-var intercept_x = 0;
-var intercept_y = 0;
-var rot_x = 0;
-var rot_y = 0;
+	// Save canvas transformation state first
+	context.save();
 
-// Intercept progress around circumference
-// Proportion of rotation by tooth count, modified by gear ratio
-var circ_prog = rotate / (Math.PI * 2) * teeth * (h_circ / teeth);
+	for (let g = 0; g < gearboxes.length; g++) {
+	
+	////////////////////////////////////////////////////////////////
+	// If gear is not first stationary hoop, apply transformation //
+	////////////////////////////////////////////////////////////////
 
-// Number of teeth on each 'side' of gear
-var seg_circ = teeth/c_nodes;
+		if (g > 0) {
 
-// Calculate which 'side' intercept lies on
-var side_seg = Math.floor(circ_prog / seg_circ);
+		//////////////////////////////////////////////////
+		// Calculate closest segment break to intercept //
+		//////////////////////////////////////////////////
+	
+			var rotseg = 0;
+			var seg_prog = 0;
+			var seg_angle = 0;
+			var intercept_x = 0;
+			var intercept_y = 0;
+			var rot_x = 0;
+			var rot_y = 0;
+			
+			// Intercept progress around circumference
+			// Proportion of rotation by tooth count, modified by gear ratio
+			var mod_rotate = rotate;
+			for (let k = g; k > 1; k--) {
+				mod_rotate = mod_rotate * cut_teeth[k-2] / teeth[k-1];
+			}
+			var circ_prog = mod_rotate / (Math.PI * 2) * teeth[g] * (cut_teeth[g-1] / teeth[g]);
+			
+			// Number of teeth on each 'side' of gear
+			var seg_circ = teeth[g]/c_nodes[g];
+		
+			// Calculate which 'side' intercept lies on
+			var side_seg = Math.floor(circ_prog / seg_circ);
+		
+			// Calculate how far along current side the intercept lies
+			var side_prog = circ_prog - (seg_circ * side_seg);
+		
+			// Calculate number of teeth on each corner/edge arc
+			var c_seg = c_circ[g] * (seg_break[g] / Math.PI);
+			var e_seg = seg_circ - c_seg;
+		
+			// Determine whether intercept lies on corner or edge
+			if (side_prog - (c_seg/2) <= 0) {
+				rotseg = 2 * side_seg;
+				seg_prog = side_prog;
+			} else if (side_prog - (c_seg/2) - e_seg <= 0) {
+				rotseg = 2 * side_seg + 1;
+				seg_prog = side_prog - (c_seg/2);
+			} else {
+				rotseg = 2 * side_seg + 2;
+				seg_prog = -(seg_circ - side_prog);
+			}
+			
+			// Calculate angle to center of rotation
+			var rotseg_a = (Math.PI * 2) / (c_nodes[g] * 2) * rotseg;
+					
+			if(rotseg % 2 == 0) {
+				seg_angle = (2*rotseg) * (Math.PI / (2*c_nodes[g]));
+				seg_angle = seg_angle + ((seg_prog / c_seg) * (2 * seg_break[g]));
+				rot_x = Math.cos(rotseg_a) * g_radius[g];
+				rot_y = Math.sin(rotseg_a) * g_radius[g];
+				intercept_x = rot_x + Math.cos(seg_angle) * c_radius[g];
+				intercept_y = rot_y + Math.sin(seg_angle) * c_radius[g];
+			} else {
+				seg_angle = (2*(rotseg-1)) * (Math.PI / (2*c_nodes[g])) + seg_break[g];
+				seg_angle = seg_angle + ((seg_prog / e_seg) * (2 * Math.PI / c_nodes[g] - 2*seg_break[g]));
+				rot_x = Math.cos(rotseg_a) * -ec_offset[g];
+				rot_y = Math.sin(rotseg_a) * -ec_offset[g];
+				intercept_x = rot_x + Math.cos(seg_angle) * e_radius[g];
+				intercept_y = rot_y + Math.sin(seg_angle) * e_radius[g];
+			}
+			
+			var x_focus = (Math.cos(mod_rotate)*(cut_teeth[g-1]/2*Math.PI));
+			var y_focus = (Math.sin(mod_rotate)*(cut_teeth[g-1]/2*Math.PI));
+			var x_displace = x_focus - intercept_x;
+			var	y_displace = y_focus - intercept_y;
+			var mod_dangle = Math.atan(y_displace/x_displace);
+			if (x_displace < 0) { mod_dangle = mod_dangle + Math.PI; }
+			var mod_displace = Math.hypot(x_displace, y_displace);			
+		}
+	
+	//////////////////////////////////////////
+	// Draw gear shape from intercept point //
+	//////////////////////////////////////////
 
-// Calculate how far along current side the intercept lies
-var side_prog = circ_prog - (seg_circ * side_seg);
+		// Translate canvas to intercept point
+		context.translate(intercept_x, intercept_y);
 
-// Calculate number of teeth on each corner/edge arc
-var c_seg = c_circ * (seg_break / Math.PI);
-var e_seg = seg_circ - c_seg;
-
-// Determine whether intercept lies on corner or edge
-if (side_prog - (c_seg/2) <= 0) {
-	rotseg = 2 * side_seg;
-	seg_prog = side_prog;
-} else if (side_prog - (c_seg/2) - e_seg <= 0)
-{
-	rotseg = 2 * side_seg + 1;
-	seg_prog = side_prog - (c_seg/2);
-} else {
-	rotseg = 2 * side_seg + 2;
-	seg_prog = -(seg_circ - side_prog);
-}
-
-// Calculate angle to center of rotation
-var rotseg_a = (Math.PI * 2) / (c_nodes * 2) * rotseg;
-
-let intercept = new Path2D();
-intercept.moveTo(0,0);
-
-if(rotseg % 2 == 0) {
-	seg_angle = (2*rotseg) * (Math.PI / (2*c_nodes));
-	seg_angle = seg_angle + ((seg_prog / c_seg) * (2 * seg_break));
-	rot_x = Math.cos(rotseg_a) * g_radius;
-	rot_y = Math.sin(rotseg_a) * g_radius;
-	intercept.lineTo(rot_x,rot_y);
-	intercept_x = rot_x + Math.cos(seg_angle) * c_radius;
-	intercept_y = rot_y + Math.sin(seg_angle) * c_radius;
-	intercept.lineTo(intercept_x,intercept_y);
-} else {
-	seg_angle = (2*(rotseg-1)) * (Math.PI / (2*c_nodes)) + seg_break;
-	seg_angle = seg_angle + ((seg_prog / e_seg) * (2 * Math.PI / c_nodes - 2*seg_break));
-	rot_x = Math.cos(rotseg_a) * -ec_offset;
-	rot_y = Math.sin(rotseg_a) * -ec_offset;
-	intercept.lineTo(rot_x,rot_y);
-	intercept_x = rot_x + Math.cos(seg_angle) * e_radius;
-	intercept_y = rot_y + Math.sin(seg_angle) * e_radius;
-	intercept.lineTo(intercept_x,intercept_y);
-}
-//context.stroke(intercept);
-
-var x_displace = (Math.cos(rotate)*h_radius) - intercept_x;
-var y_displace = (Math.sin(rotate)*h_radius) - intercept_y;
-var mod_dangle = Math.atan(y_displace/x_displace);
-if (x_displace < 0) { mod_dangle = mod_dangle + Math.PI; }
-var mod_displace = Math.hypot(x_displace, y_displace);
-var x_focus = (Math.cos(rotate)*h_radius);
-var y_focus = (Math.sin(rotate)*h_radius);
-
-tpen_x = p_offset_x;
-tpen_y = p_offset_y;
-tpen_x = tpen_x + x_displace;
-tpen_y = tpen_y + y_displace;
-var rot_pen = Math.atan((y_focus - tpen_y)/(x_focus - tpen_x));
-if (x_focus - tpen_x < 0) { rot_pen = rot_pen + Math.PI; }
-var disp_pen = Math.hypot(x_focus - tpen_x, y_focus - tpen_y);
-tpen_x = x_focus - Math.cos(rot_pen + rotate - seg_angle) * disp_pen;
-tpen_y = y_focus - Math.sin(rot_pen + rotate - seg_angle) * disp_pen;
-
-trace.lineTo(tpen_x,tpen_y);
-
-context.beginPath();
-context.arc(tpen_x,tpen_y, 2, 0, 2*Math.PI, false);
-context.fillStyle = 'red';
-context.fill();
-context.closePath();
-
-if (rotate == 0) {
-	path_start_x = tpen_x;
-	path_start_y = tpen_y;
-}
-
-//////////////////////////////////////////
-// Draw gear shape from intercept point //
-//////////////////////////////////////////
-
-// Save canvas and translate to intercept point
-context.save();
-context.translate(intercept_x, intercept_y);
-
-// Rotate shape around new origin and translate to origin
-context.rotate(rotate-seg_angle);
-context.translate(-intercept_x, -intercept_y);
-
-// Translate shape to focus point after inverting rotation of context
-context.translate(Math.cos(mod_dangle - (rotate-seg_angle)) * mod_displace,Math.sin(mod_dangle - (rotate-seg_angle)) * mod_displace);
-
-// Draw shape at displacement coordinates
-context.lineWidth = 1;
-context.strokeStyle = 'blue';
-context.stroke(gear_shapes[0]);
-
-// Restore canvas to saved state
-context.restore();
-
-///////////////////////////////////////////
-// Draw hoop circumference in light grey //
-///////////////////////////////////////////
-
-context.beginPath();
-context.strokeStyle = 'lightgrey';
-context.arc(0,0,h_radius,0,2*Math.PI);
-context.stroke();
+		// Rotate shape around new origin and translate to origin
+		context.rotate(mod_rotate-seg_angle);
+		context.translate(-intercept_x, -intercept_y);
+		
+		// Translate shape to focus point after inverting rotation of context
+		context.translate(Math.cos(mod_dangle - (mod_rotate-seg_angle)) * mod_displace,Math.sin(mod_dangle - (mod_rotate-seg_angle)) * mod_displace);
+	
+		// Draw shape at displacement coordinates
+		context.lineWidth = 2;
+		context.strokeStyle = 'blue';
+		context.stroke(gear_shapes[g]);
+		context.fillStyle = "rgba(0, 0, 255, 0.5)";
+		context.fill(gear_shapes[g]);
+		
+		// If cutout path exists, change compositing mode to clear gear section
+		// Then restore compositing to default and stroke cutout
+		if (cutout_shapes[g] !== undefined) {
+			context.translate(cut_offset_x[g],cut_offset_y[g]);
+			context.globalCompositeOperation = 'destination-out';
+			context.fillStyle = "rgba(0, 0, 255, 1)";
+			context.fill(cutout_shapes[g]);
+			context.globalCompositeOperation = 'source-over';
+			context.stroke(cutout_shapes[g]);
+		}
+	}
+	
+////////////////////////////////////////////////////
+// Add new trace point based on gear calculations //
+////////////////////////////////////////////////////
+	
+	// Save current tranformation matrix
+	let matrix = context.getTransform();
+	
+	// Restore canvas to saved state
+	context.restore();
+	
+	// Calculate location of trace point relative to origin
+	tpen_x = p_offset_x;
+	tpen_y = p_offset_y;
+	
+	// Transform trace point coordinates through saved matrix
+	const point = {x: tpen_x, y: tpen_y};
+	const tpen_matrix = {
+		x: matrix.a * point.x + matrix.c * point.y + matrix.e - x,
+		y: matrix.b * point.x + matrix.d * point.y + matrix.f - y,
+	};
+	
+	// Add transformed coordinate to trace path
+	trace.lineTo(tpen_matrix.x,tpen_matrix.y);
+	
+	// Save pen coordinates if beginning new trace
+	if (rotate == 0) {
+		path_start_x = tpen_matrix.x;
+		path_start_y = tpen_matrix.y;
+	}
 
 /////////////////////////////////////
 // Draw recorded trace line in red //
 /////////////////////////////////////
 
-context.strokeStyle = 'red';
-context.stroke(trace);
+	context.strokeStyle = 'red';
+	context.stroke(trace);
 
-/////////////////////////////////////////////////////////
-// Increment rotate variable based on resolution speed //
-/////////////////////////////////////////////////////////
+///////////////////////////
+// Draw trace pen marker //
+///////////////////////////
+	
+	context.beginPath();
+	context.arc(tpen_matrix.x,tpen_matrix.y, 2, 0, 2*Math.PI, false);
+	context.fillStyle = 'red';
+	context.fill();
+	context.closePath();
+	
+///////////////////////////////
+// Increment rotate variable //
+///////////////////////////////
 
-rotate = rotate + Math.PI / 360;
+	rotate = rotate + Math.PI / 720;
 
 ////////////////////////////////////////
 // Populate dubug monitor if required //
 ////////////////////////////////////////
 
-context.fillText(debug_txt,-300,-300);
+	context.fillText(debug_txt,-300,-300);
 
 ////////////////////////////////////////////////
 // Check for trace path closure within 0.01px //
 ////////////////////////////////////////////////
 
-if (Math.abs(tpen_x - path_start_x) <= 0.01 && Math.abs(tpen_y - path_start_y) <= 0.01 && rotate > Math.PI / c_nodes) { path_complete = true; }
+	if (Math.abs(tpen_matrix.x - path_start_x) <= 0.01 && Math.abs(tpen_matrix.y - path_start_y) <= 0.01 && rotate > Math.PI) { path_complete = true; }
 
 //////////////////////////////////////////////////////
 // Loop drawing function if trace line remains open //
 //////////////////////////////////////////////////////
 
-sp_count++;
-if (!path_complete && sp_count >= resolution) {
-	sp_count = 0;
-	window.requestAnimationFrame(loopDraw);
-} else if (!path_complete && sp_count < resolution) {
-	loopDraw();
+	sp_count++;
+	if (!path_complete && sp_count >= resolution) {
+		sp_count = 0;
+		window.requestAnimationFrame(loopDraw);
+	} else if (!path_complete && sp_count < resolution) {
+		loopDraw();
+	}
 }
-}
+
+let inputs = document.querySelectorAll('input');
+inputs.forEach(el => el.addEventListener('change', redraw));
+inputs = document.querySelectorAll('input[type="range"]');
+inputs.forEach(el => el.addEventListener('input', redraw));
+document.getElementById('drawButton').addEventListener('click', buttonDraw);
+document.getElementById('stopButton').addEventListener('click', buttonStop);
+document.getElementById('gearButton').addEventListener('click', addGear);
 
 setVariables();
 path_complete = true;
