@@ -57,9 +57,17 @@ const breakpoints = [];
 const gear_shapes = [];
 const cutout_shapes = [];
 
+const gearFactors = [];
+const cutFactors = [];
+
 let gearboxes = [];
 
 const gearList = document.getElementById('gearList');
+
+let currentGears = [
+	{ gear_mode: 'simple', c_nodes: 3, c_circ: 199, e_circ: 200, balance: 99, cut_mode: 'simple', cut_c_nodes: 3, cut_c_circ: 159, cut_e_circ: 160, cut_balance: 99, x_offset: 0, y_offset: 0 },
+	{ gear_mode: 'polygon', c_nodes: 3, c_circ: 30, e_circ: 90, balance: 58, cut_mode: 'simple', cut_c_nodes: 3, cut_c_circ: 159, cut_e_circ: 160, cut_balance: 99, x_offset: 0, y_offset: 0 }
+];
 
 const gearSetup = [
 	{ type: 'number', id: 'nodes_', func: function() {redraw();}, value: '3', label: 'Corner count:' },
@@ -137,22 +145,51 @@ function addGear() {
 	// Create labels and inputs for cutout on preceding gear //
 	///////////////////////////////////////////////////////////
 	
+	// Set gear numbers
+	let gear_n = gearboxes.length;
+	let cut_n = gear_n - 1;
+	
 	// Select preceding gear and create div for cutout controls
-	let lastGear = document.getElementById('gear_' + (gearboxes.length - 1));
+	let lastGear = document.getElementById('gear_' + cut_n);
 	let newCutout = document.createElement('div');
 	newCutout.className = 'cutout';
-	newCutout.id = 'cutout_' + (gearboxes.length - 1);
+	newCutout.id = 'cutout_' + cut_n;
 	
 	// Define cutout labels and inputs
+	let newRadio = document.createElement('input');
+	newRadio.type = 'radio';
+	newRadio.id = 'simple_cut_mode_' + cut_n;
+	newRadio.name = 'cut_mode_' + cut_n;
+	newRadio.value = 'Simple';
+	let newRLabel = document.createElement('label');
+	let newRLText = document.createTextNode('Simple Mode');
+	newRLabel.appendChild(newRLText);
+	
+	newCutout.appendChild(newRadio);
+	newCutout.appendChild(newRLabel);
+	
+	newRadio = document.createElement('input');
+	newRadio.type = 'radio';
+	newRadio.id = 'polygon_cut_mode_' + cut_n;
+	newRadio.name = 'cut_mode_' + cut_n;
+	newRadio.value = 'Polygon';
+	newRLabel = document.createElement('label');
+	newRLText = document.createTextNode('Polygon Mode');
+	newRLabel.appendChild(newRLText);
+	
+	newCutout.appendChild(newRadio);
+	newCutout.appendChild(newRLabel);
+	newCutout.appendChild(document.createElement('br'));
+	
 	for (let i = 0; i < cutoutSetup.length; i++) {
 		let newLabel = document.createElement('label');
-		newLabel.htmlFor = cutoutSetup[i].id + (gearboxes.length - 1);
+		newLabel.htmlFor = cutoutSetup[i].id + cut_n;
 		let newLabelText = document.createTextNode(cutoutSetup[i].label);
 		newLabel.appendChild(newLabelText);
 		let newInput = document.createElement('input');
 		newInput.type = cutoutSetup[i].type;
-		newInput.id = cutoutSetup[i].id + (gearboxes.length - 1);
-		newInput.name = cutoutSetup[i].id + (gearboxes.length - 1);
+		newInput.id = cutoutSetup[i].id + cut_n;
+		newInput.name = cutoutSetup[i].id + cut_n;
 		newInput.value = cutoutSetup[i].value;
 		if (cutoutSetup[i].type == 'range') {
 			newInput.min = '1';
@@ -164,8 +201,12 @@ function addGear() {
 		newCutout.appendChild(newInput);
 		if (cutoutSetup[i].type == 'range') {
 			let newSpan = document.createElement('span');
-			newSpan.id = 'cut_gearTeeth_' + (gearboxes.length - 1);
+			newSpan.id = 'cut_gearTeeth_' + cut_n;
 			newCutout.appendChild(newSpan);
+			newCutout.appendChild(document.createElement('br'));
+			let cfactorSpan = document.createElement('span');
+			cfactorSpan.id = 'cutFactors_' + cut_n;
+			newCutout.appendChild(cfactorSpan);
 		}
 		newCutout.appendChild(document.createElement('br'));
 	}
@@ -188,15 +229,40 @@ function addGear() {
 	///////////////////////////////////////////
 	
 	// Define new labels and inputs
+	newRadio = document.createElement('input');
+	newRadio.type = 'radio';
+	newRadio.id = 'simple_cut_mode_' + cut_n;
+	newRadio.name = 'cut_mode_' + cut_n;
+	newRadio.value = 'Simple';
+	newRLabel = document.createElement('label');
+	newRLText = document.createTextNode('Simple Mode');
+	newRLabel.appendChild(newRLText);
+	
+	newGear.appendChild(newRadio);
+	newGear.appendChild(newRLabel);
+	
+	newRadio = document.createElement('input');
+	newRadio.type = 'radio';
+	newRadio.id = 'polygon_cut_mode_' + cut_n;
+	newRadio.name = 'cut_mode_' + cut_n;
+	newRadio.value = 'Polygon';
+	newRLabel = document.createElement('label');
+	newRLText = document.createTextNode('Polygon Mode');
+	newRLabel.appendChild(newRLText);
+	
+	newGear.appendChild(newRadio);
+	newGear.appendChild(newRLabel);
+	newGear.appendChild(document.createElement('br'));
+	
 	for (let i = 0; i < gearSetup.length; i++) {
 		let newLabel = document.createElement('label');
-		newLabel.htmlFor = gearSetup[i].id + gearboxes.length;
+		newLabel.htmlFor = gearSetup[i].id + gear_n;
 		let newLabelText = document.createTextNode(gearSetup[i].label);
 		newLabel.appendChild(newLabelText);
 		let newInput = document.createElement('input');
 		newInput.type = gearSetup[i].type;
-		newInput.id = gearSetup[i].id + gearboxes.length;
-		newInput.name = gearSetup[i].id + gearboxes.length;
+		newInput.id = gearSetup[i].id + gear_n;
+		newInput.name = gearSetup[i].id + gear_n;
 		newInput.value = gearSetup[i].value;
 		if (gearSetup[i].type == 'range') {
 			newInput.min = '1';
@@ -208,11 +274,15 @@ function addGear() {
 		newGear.appendChild(newInput);
 		if (gearSetup[i].type == 'range') {
 			let newSpan = document.createElement('span');
-			newSpan.id = 'gearTeeth_' + gearboxes.length;
+			newSpan.id = 'gearTeeth_' + gear_n;
 			newGear.appendChild(newSpan);
 		}
 		newGear.appendChild(document.createElement('br'));
 	}
+	let gfactorSpan = document.createElement('span');
+	gfactorSpan.id = 'gearFactors_' + gear_n;
+	newGear.appendChild(gfactorSpan);
+	newGear.appendChild(document.createElement('br'));
 	newGear.appendChild(document.createElement('br'));
 	gearList.appendChild(newGear);
 	
@@ -360,6 +430,24 @@ function buttonStop() {
 	path_complete = true;
 }
 
+function primeFactors(array,gear,n) {
+	if (array[gear] == undefined) {
+		array.push([]);
+	} else {
+		array[gear] = [];
+	}
+	let c = 2;
+	while (n > 1) {
+		if (n % c == 0) {
+			n /= c;
+			array[gear].push(c);
+		} else {
+			c++;
+		}
+	}
+	return array[gear].join();
+}
+
 function beginDraw() {
 	////////////////////////////
 	// Loop through all gears //
@@ -394,6 +482,7 @@ function beginDraw() {
 
 		// Update gearTeeth span with calculated teeth value
 		document.getElementById('gearTeeth_'+g).innerHTML = teeth[g];
+		document.getElementById('gearFactors_'+g).innerHTML = primeFactors(gearFactors,g,teeth[g]);
 
 		////////////////////////////////////////
 		// Calculate and save gear shape path //
@@ -473,6 +562,7 @@ function beginDraw() {
 
 		// Update gearTeeth span with calculated teeth value
 		document.getElementById('cut_gearTeeth_'+g).innerHTML = cut_teeth[g];
+		document.getElementById('cutFactors_'+g).innerHTML = primeFactors(cutFactors,g,cut_teeth[g]);
 
 		////////////////////////////////////////
 		// Calculate and save gear shape path //

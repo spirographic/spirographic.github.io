@@ -29,6 +29,10 @@
 <div class="menu" id="menu">
 	<div class="gearList" id="gearList">
 		<div class="gearBox" id="gear_0">
+			<input type="radio" id="simple_mode_0" name="mode_0" value="Simple">
+			<label for="simple_mode_0">Simple Mode</label>
+			<input type="radio" id="polygon_mode_0" name="mode_0" value="Polygon">
+			<label for="simple_mode_0">Polygon Mode</label><br>
 			<label for="nodes_0">Corner count:</label>
 			<input type="number" id="nodes_0" name="nodes_0" value="3"><br>
 			<label for="c_size_0">Corner size:</label>
@@ -37,8 +41,13 @@
 			<input type="number" id="e_size_0" name="e_size_0" value="200"><br>
 			<label for="ratio_0">Tooth balance:</label>
 			<input type="range" min="1" max="100" name="ratio_0" id="ratio_0" value="100">
-			<span id="gearTeeth_0">20</span><br><br>
+			<span id="gearTeeth_0">20</span><br>
+			<span id="gearFactors_0">?</span><br><br>
 			<div class="cutout" id="cutout_0">
+				<input type="radio" id="simple_cut_mode_0" name="cut_mode_0" value="Simple">
+			<label for="simple_cut_mode_0">Simple Mode</label>
+				<input type="radio" id="polygon_cut_mode_0" name="cut_mode_0" value="Polygon">
+			<label for="polygon_cut_mode_0">Polygon Mode</label><br>
 				<label for="cut_nodes_0">Corner count:</label>
 				<input type="number" id="cut_nodes_0" name="cut_nodes_0" value="3"><br>
 				<label for="cut_c_size_0">Corner size:</label>
@@ -48,6 +57,7 @@
 				<label for="cut_ratio_0">Tooth balance:</label>
 				<input type="range" id="cut_ratio_0" name="cut_ratio_0" min="1" max="100" value="100">
 				<span id="cut_gearTeeth_0">160</span><br>
+				<span id="cutFactors_0">?</span><br>
 				<label for="cut_x_offset_0">X-axis offset:</label>
 				<input type="number" id="cut_x_offset_0" name="cut_x_offset_0" value="0"><br>
 				<label for="cut_y_offset_0">Y-axis offset:</label>
@@ -55,6 +65,10 @@
 			</div>
 		</div>
 		<div class="gearBox" id="gear_1">
+			<input type="radio" id="simple_mode_1" name="mode_1" value="Simple">
+			<label for="simple_mode_1">Simple Mode</label>
+			<input type="radio" id="polygon_mode_1" name="mode_1" value="Polygon">
+			<label for="polygon_mode_1">Polygon Mode</label><br>
 			<label for="nodes_1">Corner count:</label>
 			<input type="number" id="nodes_1" name="nodes_1" value="3"><br>
 			<label for="c_size_1">Corner size:</label>
@@ -63,7 +77,8 @@
 			<input type="number" id="e_size_1" name="e_size_1" value="90"><br>
 			<label for="ratio_1">Tooth balance:</label>
 			<input type="range" id="ratio_1" name="ratio_1" min="1" max="100" value="58">
-			<span id="gearTeeth_1">60</span><br><br>
+			<span id="gearTeeth_1">60</span><br>
+			<span id="gearFactors_1">?</span><br><br>
 		</div>
 	</div>
 	<label for="poff_x">Pen offset (x):</label>
